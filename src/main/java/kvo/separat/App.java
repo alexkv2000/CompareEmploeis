@@ -3,6 +3,7 @@ package kvo.separat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.sql.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -13,14 +14,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-
 public class App {
     private static final Logger logger = LoggerFactory.getLogger(App.class);
 
     // Данные для подключения к базе данных
-    private static final String DB_URL = "jdbc:sqlserver://docprod\\sqlprod;databaseName=GAZ;encrypt=false;trustServerCertificate=true;";
-    private static final String USER = "DVSQL";
-    private static final String PASS = "DV_Cthdbc14@";
+    private static String DB_URL;
+    private static String USER;
+    private static String PASS;
 
     // Названия таблиц
     private static final String MAIN_TABLE_EMPLOYEES = "dEmployes";
@@ -45,6 +45,8 @@ public class App {
             return code;
         }
     }
+    static String currentDir;
+
 
     // Класс для представления строки таблицы (используем EMPLOYEEID как ключ)
     static class RowEmploee {
@@ -151,7 +153,8 @@ public class App {
 
         // MD5-хэш уникальных полей
         String getMD5() throws NoSuchAlgorithmException {
-            String data = DepartmentID + "|" + NAME + "|" + MANAGERID + "|" + MANAGERLOGINNAME + "|" + PARENTID + "|" + TYPE_NAME + "|" + CODE + "|" + B_DATE + "|" + E_DATE + "|" + DATA_INTEG + "|" + E_DOC + "|" + ID_DEPT_OWN;
+//            String data = DepartmentID + "|" + NAME + "|" + MANAGERID + "|" + MANAGERLOGINNAME + "|" + PARENTID + "|" + TYPE_NAME + "|" + CODE + "|" + B_DATE + "|" + E_DATE + "|" + DATA_INTEG + "|" + E_DOC + "|" + ID_DEPT_OWN;
+            String data = DepartmentID + "|" + NAME + "|" + MANAGERID + "|" + MANAGERLOGINNAME + "|" + PARENTID + "|" + TYPE_NAME + "|" + CODE + "|" + B_DATE + "|" + E_DATE + "|" + E_DOC + "|" + ID_DEPT_OWN;
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] hash = md.digest(data.getBytes());
             StringBuilder sb = new StringBuilder();
@@ -179,13 +182,39 @@ public class App {
         }
         @Override
         public int hashCode() {
-            return Objects.hash(DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN);
+//            return Objects.hash(DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN);
+            return Objects.hash(DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, E_DOC, ID_DEPT_OWN);
         }
     }
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
+        currentDir = System.getProperty("user.dir");
+//        String configPath = currentDir + "\\src\\main\\java\\config\\settingSynDictionary.txt";
+        String configPath = currentDir + "\\config\\settingSynDictionary.txt";
+        DB_URL = "jdbc:sqlserver://docprod\\sqlprod;databaseName=GAZ;encrypt=false;trustServerCertificate=true;";
+        USER = "DVSQL";
+        PASS = "DV_Cthdbc14@";
+
+        for (String arg : args) {
+            if (arg.startsWith("config.path=")) {
+                configPath = arg.substring("config.path=".length());
+            }
+        }
+
+        ConfigLoader configLoader = new ConfigLoader(configPath);
+        DB_URL = configLoader.getProperty("DB_URL");
+        USER = configLoader.getProperty("USER");
+        PASS =  configLoader.getProperty("PASS");
+        int departmentDefHour = Integer.parseInt(configLoader.getProperty("departmentDefHour"));
+        int departmentDefMinutes = Integer.parseInt(configLoader.getProperty("departmentDefMinutes"));
+        int departmentRestartHours = Integer.parseInt(configLoader.getProperty("departmentRestartHours"));
+
+        int employeeDefHour = Integer.parseInt(configLoader.getProperty("employeeDefHour"));
+        int employeeDefMinutes = Integer.parseInt(configLoader.getProperty("employeeDefMinutes"));
+        int employeeRestartHours = Integer.parseInt(configLoader.getProperty("employeeRestartHours"));
+
         // Пример : Если нужен Запуск с 4:15 с периодичностью `periodRestartHour`= 2 часа : SyncEmploee(4,15,2);
-        SyncDepartment(4,0,4); // синхронизация справочника Подразделений (каждые 4 часа)
-        SyncEmployee(5,20,1); // синхронизация справочника Сотрудников (каждый час)
+        SyncDepartment(departmentDefHour, departmentDefMinutes, departmentRestartHours); // синхронизация справочника Подразделений (каждые 4 часа)
+        SyncEmployee(employeeDefHour, employeeDefMinutes, employeeRestartHours); // синхронизация справочника Сотрудников (каждый час)
 
     }
     private static void SyncDepartment(int defHour, int defMinutes, Integer periodRestartHour) {
@@ -249,9 +278,9 @@ public class App {
                 Duration duration = Duration.between(dStart, dStop);
                 long seconds = duration.getSeconds();
                 System.out.printf("Время выгрузки %d секунд.\n", seconds);
-                System.out.println("Синхронизация завершена успешно!\nУдаляемые строки выгружены в " + DEL_MAIN_TABLE_DEPARTMENTS.toUpperCase() + ". В " + MAIN_TABLE_DEPARTMENTS.toUpperCase() + " остались только новые записи.\n");
-                System.out.printf("Для проверки подключитесь к базе MSSQL(%s). \nВыполните запросы:\n %s", "DocProd\\SQLPROD (GAZ)", "select * FROM dDepartments; - проверка данных актуальных пользователей.\n select * FROM del_Departments; - проверка удаленных данных. \n");
-                System.out.printf("Для проверки последних загруженных данных, добавить условие:\n %s", "select * FROM dDepartments where date_create=(SELECT MAX(date_create) FROM dDepartments); - записи с последнего обновления.\n select * FROM dDepartments where CAST(date_create AS DATE)=(SELECT MAX(CAST(date_create AS DATE)) FROM dDepartments); - записи с последнего обновления в течении дня.\n" );
+//                System.out.println("Синхронизация завершена успешно!\nУдаляемые строки выгружены в " + DEL_MAIN_TABLE_DEPARTMENTS.toUpperCase() + ". В " + MAIN_TABLE_DEPARTMENTS.toUpperCase() + " остались только новые записи.\n");
+//                System.out.printf("Для проверки подключитесь к базе MSSQL(%s). \nВыполните запросы:\n %s", "DocProd\\SQLPROD (GAZ)", "select * FROM dDepartments; - проверка данных актуальных пользователей.\n select * FROM del_Departments; - проверка удаленных данных. \n");
+//                System.out.printf("Для проверки последних загруженных данных, добавить условие:\n %s", "select * FROM dDepartments where date_create=(SELECT MAX(date_create) FROM dDepartments); - записи с последнего обновления.\n select * FROM dDepartments where CAST(date_create AS DATE)=(SELECT MAX(CAST(date_create AS DATE)) FROM dDepartments); - записи с последнего обновления в течении дня.\n" );
                 System.out.println("===========================================================================================");
             } catch (Exception e) {
                 logger.error("Error in ConsumerServer.startProcessing.MSSQLConnection.deleteBinMoreSevenDay ", e);
@@ -322,9 +351,9 @@ public class App {
                 Duration duration = Duration.between(dStart, dStop);
                 long seconds = duration.getSeconds();
                 System.out.printf("Время выгрузки %d секунд.\n", seconds);
-                System.out.println("Синхронизация завершена успешно!\nУдаляемые строки выгружены в " + DEL_MAIN_TABLE_EMPLOYEES.toUpperCase() + ". В " + MAIN_TABLE_EMPLOYEES.toUpperCase() + " остались только новые записи. 😀✨\n");
-                System.out.println("Для проверки подключитесь к базе MSSQL. \nВыполните запросы (DocProd\\SQLPROD (GAZ)) :\n  select * FROM demployes; - проверка данных актуальных пользователей.\n  select * FROM del_main_table; - проверка удаленных данных. \n");
-                System.out.println("Для проверки последних загруженных данных, добавить условие:\n  select * FROM demployes where date_create=(SELECT MAX(date_create) FROM demployes); - записи с последнего обновления.\n  select * FROM demployes where CAST(date_create AS DATE)=(SELECT MAX(CAST(date_create AS DATE)) FROM demployes); - записи с последнего обновления в течении дня.\n");
+//                System.out.println("Синхронизация завершена успешно!\nУдаляемые строки выгружены в " + DEL_MAIN_TABLE_EMPLOYEES.toUpperCase() + ". В " + MAIN_TABLE_EMPLOYEES.toUpperCase() + " остались только новые записи. 😀✨\n");
+//                System.out.println("Для проверки подключитесь к базе MSSQL. \nВыполните запросы (DocProd\\SQLPROD (GAZ)) :\n  select * FROM demployes; - проверка данных актуальных пользователей.\n  select * FROM del_main_table; - проверка удаленных данных. \n");
+//                System.out.println("Для проверки последних загруженных данных, добавить условие:\n  select * FROM demployes where date_create=(SELECT MAX(date_create) FROM demployes); - записи с последнего обновления.\n  select * FROM demployes where CAST(date_create AS DATE)=(SELECT MAX(CAST(date_create AS DATE)) FROM demployes); - записи с последнего обновления в течении дня.\n");
                 System.out.println("===========================================================================================");
             } catch (Exception e) {
                 logger.error("Error in ConsumerServer.startProcessing.MSSQLConnection.deleteBinMoreSevenDay ", e);

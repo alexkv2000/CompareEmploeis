@@ -1,0 +1,11 @@
+DB_URL = jdbc:sqlserver://docprod\\sqlprod;databaseName=GAZ;encrypt=false;trustServerCertificate=true;
+USER = DVSQL
+PASS = DV_Cthdbc14@
+
+departmentDefHour=10
+departmentDefMinutes=6
+departmentRestartHours=1
+
+employeeDefHour=5
+employeeDefMinutes=7
+employeeRestartHours=1
