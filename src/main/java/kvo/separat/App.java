@@ -15,6 +15,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 // Micrometer imports
+import io.prometheus.client.CollectorRegistry;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.Gauge;
@@ -28,6 +29,7 @@ import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.prometheus.client.exporter.HTTPServer;
 public class App {
+    private static HTTPServer server;
     private static final Logger logger = LoggerFactory.getLogger(App.class);
 
     // Данные для подключения к базе данных
@@ -252,38 +254,47 @@ public class App {
             // Инициализация метрик
             employeeSyncCounter = Counter.builder("employee_sync_total")
                     .description("Total number of employee synchronizations")
+                    .tag("application","sync-app")
                     .register(registry);
 
             departmentSyncCounter = Counter.builder("department_sync_total")
                     .description("Total number of department synchronizations")
+                    .tag("application","sync-app")
                     .register(registry);
 
             employeeSyncErrorCounter = Counter.builder("employee_sync_errors_total")
                     .description("Total number of employee synchronization errors")
+                    .tag("application","sync-app")
                     .register(registry);
 
             departmentSyncErrorCounter = Counter.builder("department_sync_errors_total")
                     .description("Total number of department synchronization errors")
+                    .tag("application","sync-app")
                     .register(registry);
 
             employeeSyncTimer = Timer.builder("employee_sync_duration_seconds")
                     .description("Employee synchronization duration in seconds")
+                    .tag("application","sync-app")
                     .register(registry);
 
             departmentSyncTimer = Timer.builder("department_sync_duration_seconds")
                     .description("Department synchronization duration in seconds")
+                    .tag("application","sync-app")
                     .register(registry);
 
             rowsProcessedCounter = Counter.builder("rows_processed_total")
                     .description("Total number of rows processed")
+                    .tag("application","sync-app")
                     .register(registry);
 
             rowsInsertedCounter = Counter.builder("rows_inserted_total")
                     .description("Total number of rows inserted")
+                    .tag("application","sync-app")
                     .register(registry);
 
             rowsDeletedCounter = Counter.builder("rows_deleted_total")
                     .description("Total number of rows deleted")
+                    .tag("application","sync-app")
                     .register(registry);
 
             // Биндеры для мониторинга JVM
@@ -294,11 +305,18 @@ public class App {
             new UptimeMetrics().bindTo(registry);
 
             // Запуск HTTP сервера для Prometheus
-            HTTPServer server = new HTTPServer(8080);
-            logger.info("Prometheus metrics server started on port 8080");
+            //     ДОБАВЛНО ВМЕСТО  -  HTTPServer server = new HTTPServer(8080);
+            CollectorRegistry collectorRegistry = registry.getPrometheusRegistry();
+
+            server = new HTTPServer.Builder()
+                    .withPort(8080)
+                    .withRegistry(collectorRegistry)
+                    .build();
+
+            logger.info("sync-app metrics server started on http://doc-test:8080/metrics");
 
         } catch (Exception e) {
-            logger.error("Failed to initialize monitoring", e);
+            logger.error("Failed to initialize monitoring in sync-app", e);
         }
     }
     private static void SyncDepartment(int defHour, int defMinutes, Integer periodRestartHour) {
