@@ -15,21 +15,19 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 // Micrometer imports
-import io.prometheus.client.CollectorRegistry;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Timer;
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
-import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
-import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
-import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
-import io.micrometer.core.instrument.binder.system.UptimeMetrics;
-import io.micrometer.prometheus.PrometheusConfig;
-import io.micrometer.prometheus.PrometheusMeterRegistry;
-import io.prometheus.client.exporter.HTTPServer;
+//import io.prometheus.client.CollectorRegistry;
+//import io.micrometer.core.instrument.Counter;
+//import io.micrometer.core.instrument.Timer;
+//import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
+//import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
+//import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
+//import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
+//import io.micrometer.core.instrument.binder.system.UptimeMetrics;
+//import io.micrometer.prometheus.PrometheusConfig;
+//import io.micrometer.prometheus.PrometheusMeterRegistry;
+//import io.prometheus.client.exporter.HTTPServer;
 public class App {
-    private static HTTPServer server;
+//    private static HTTPServer server;
     private static final Logger logger = LoggerFactory.getLogger(App.class);
 
     // Данные для подключения к базе данных
@@ -43,16 +41,16 @@ public class App {
     private static final String MAIN_TABLE_DEPARTMENTS = "dDepartments";
     private static final String DEL_MAIN_TABLE_DEPARTMENTS = "del_Departments"; // Для удаляемых строк
     // Micrometer metrics
-    private static PrometheusMeterRegistry registry;
-    private static Counter employeeSyncCounter;
-    private static Counter departmentSyncCounter;
-    private static Counter employeeSyncErrorCounter;
-    private static Counter departmentSyncErrorCounter;
-    private static Timer employeeSyncTimer;
-    private static Timer departmentSyncTimer;
-    private static Counter rowsProcessedCounter;
-    private static Counter rowsInsertedCounter;
-    private static Counter rowsDeletedCounter;
+//    private static PrometheusMeterRegistry registry;
+//    private static Counter employeeSyncCounter;
+//    private static Counter departmentSyncCounter;
+//    private static Counter employeeSyncErrorCounter;
+//    private static Counter departmentSyncErrorCounter;
+//    private static Timer employeeSyncTimer;
+//    private static Timer departmentSyncTimer;
+//    private static Counter rowsProcessedCounter;
+//    private static Counter rowsInsertedCounter;
+//    private static Counter rowsDeletedCounter;
     public enum AnsiColor {
         RESET("\033[0m"), BLACK("\033[30m"), RED("\033[31m"), GREEN("\033[32m"), YELLOW("\033[33m"), BLUE("\033[34m"), PURPLE("\033[35m"), CYAN("\033[36m"), WHITE("\033[37m"),
         BRIGHT_BLACK("\033[90m"), BRIGHT_RED("\033[91m"), BRIGHT_GREEN("\033[92m"), BRIGHT_YELLOW("\033[93m"), BRIGHT_BLUE("\033[94m"), BRIGHT_PURPLE("\033[95m"), BRIGHT_CYAN("\033[96m"), BRIGHT_WHITE("\033[97m"),
@@ -214,17 +212,18 @@ public class App {
     }
     public static void main(String[] args) throws IOException {
         // Инициализация мониторинга
-        initializeMonitoring();
+// initializeMonitoring();
 
         currentDir = System.getProperty("user.dir");
         String configPath = currentDir + "\\src\\main\\java\\config\\settingSynDictionary.txt";
-        DB_URL = "jdbc:sqlserver://docprod\\sqlprod;databaseName=GAZ;encrypt=false;trustServerCertificate=true;";
-        USER = "DVSQL";
-        PASS = "DV_Cthdbc14@";
+        String syncDic = "Departmint";
 
         for (String arg : args) {
             if (arg.startsWith("config.path=")) {
                 configPath = arg.substring("config.path=".length());
+            }
+            if (arg.startsWith("dictionary=")) {
+                syncDic = arg.substring("dictionary=".length());
             }
         }
 
@@ -232,272 +231,317 @@ public class App {
         DB_URL = configLoader.getProperty("DB_URL");
         USER = configLoader.getProperty("USER");
         PASS = configLoader.getProperty("PASS");
-        int departmentDefHour = Integer.parseInt(configLoader.getProperty("departmentDefHour"));
-        int departmentDefMinutes = Integer.parseInt(configLoader.getProperty("departmentDefMinutes"));
-        int departmentRestartHours = Integer.parseInt(configLoader.getProperty("departmentRestartHours"));
-
-        int employeeDefHour = Integer.parseInt(configLoader.getProperty("employeeDefHour"));
-        int employeeDefMinutes = Integer.parseInt(configLoader.getProperty("employeeDefMinutes"));
-        int employeeRestartHours = Integer.parseInt(configLoader.getProperty("employeeRestartHours"));
+//        int departmentDefHour = Integer.parseInt(configLoader.getProperty("departmentDefHour"));
+//        int departmentDefMinutes = Integer.parseInt(configLoader.getProperty("departmentDefMinutes"));
+//        int departmentRestartHours = Integer.parseInt(configLoader.getProperty("departmentRestartHours"));
+//
+//        int employeeDefHour = Integer.parseInt(configLoader.getProperty("employeeDefHour"));
+//        int employeeDefMinutes = Integer.parseInt(configLoader.getProperty("employeeDefMinutes"));
+//        int employeeRestartHours = Integer.parseInt(configLoader.getProperty("employeeRestartHours"));
 
         // Запуск синхронизации
-        SyncDepartment(departmentDefHour, departmentDefMinutes, departmentRestartHours);
-        SyncEmployee(employeeDefHour, employeeDefMinutes, employeeRestartHours);
+        switch (syncDic.toLowerCase()) {
+            case "department" -> {
+                syncDepartment();
+                try {
+                    Thread.sleep(120000);  // Ожидание 2 минуты (10000 для 10 сек)
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();  // Обработка прерывания
+                }
+            }
+            case "employees" -> {
+                syncEmployees();
+                try {
+                    Thread.sleep(120000);  // Ожидание 2 минуты (10000 для 10 сек)
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();  // Обработка прерывания
+                }
+            }
+            default -> {
+                syncDepartment();
+                try {
+                    Thread.sleep(120000);  // Ожидание 2 минуты (10000 для 10 сек)
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();  // Обработка прерывания
+                }
+                syncEmployees();
+                try {
+                    Thread.sleep(120000);  // Ожидание 2 минуты (10000 для 10 сек)
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();  // Обработка прерывания
+                }
+            }
+        }
+//        SyncEmployee(employeeDefHour, employeeDefMinutes, employeeRestartHours);
+//        SyncDepartment(departmentDefHour, departmentDefMinutes, departmentRestartHours);
 
         logger.info("Application started with monitoring on port 8080");
     }
-    private static void initializeMonitoring() {
-        try {
+//    private static void initializeMonitoring() {
+//        try {
             // Создание Prometheus registry
-            registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+//            registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
             // Инициализация метрик
-            employeeSyncCounter = Counter.builder("employee_sync_total")
-                    .description("Total number of employee synchronizations")
-                    .tag("application","sync-app")
-                    .register(registry);
+//            employeeSyncCounter = Counter.builder("employee_sync_total")
+//                    .description("Total number of employee synchronizations")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            departmentSyncCounter = Counter.builder("department_sync_total")
+//                    .description("Total number of department synchronizations")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            employeeSyncErrorCounter = Counter.builder("employee_sync_errors_total")
+//                    .description("Total number of employee synchronization errors")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            departmentSyncErrorCounter = Counter.builder("department_sync_errors_total")
+//                    .description("Total number of department synchronization errors")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            employeeSyncTimer = Timer.builder("employee_sync_duration_seconds")
+//                    .description("Employee synchronization duration in seconds")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            departmentSyncTimer = Timer.builder("department_sync_duration_seconds")
+//                    .description("Department synchronization duration in seconds")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            rowsProcessedCounter = Counter.builder("rows_processed_total")
+//                    .description("Total number of rows processed")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            rowsInsertedCounter = Counter.builder("rows_inserted_total")
+//                    .description("Total number of rows inserted")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            rowsDeletedCounter = Counter.builder("rows_deleted_total")
+//                    .description("Total number of rows deleted")
+//                    .tag("application","sync-app")
+//                    .register(registry);
+//
+//            // Биндеры для мониторинга JVM
+//            // Включить для сбора метрики
+//            new JvmMemoryMetrics().bindTo(registry);
+//            new JvmGcMetrics().bindTo(registry);
+//            new JvmThreadMetrics().bindTo(registry);
+//            new ProcessorMetrics().bindTo(registry);
+//            new UptimeMetrics().bindTo(registry);
+//
+//            // Запуск HTTP сервера для Prometheus
+//            //     ДОБАВЛНО ВМЕСТО  -  HTTPServer server = new HTTPServer(8080);
+//            // Включить для сбора метрики
+//            CollectorRegistry collectorRegistry = registry.getPrometheusRegistry();
+//            server = new HTTPServer.Builder().withPort(8080).withRegistry(collectorRegistry).build();
+//            logger.info("sync-app metrics server started on http://doc-test:8080/metrics");
+//
+//        } catch (Exception e) {
+//            logger.error("Failed to initialize monitoring in sync-app", e);
+//        }
+//    }
+//    private static void SyncDepartment(int defHour, int defMinutes, Integer periodRestartHour) {
+//        int RestartHour = (periodRestartHour == null || periodRestartHour == 0) ? 1 : periodRestartHour;
+//
+//        LocalDateTime now = LocalDateTime.now();
+//        LocalDateTime nextRun = calculateNextRunTime(now, defHour, defMinutes, RestartHour);
+//        Duration initialDelay = Duration.between(now, nextRun);
+//        long initialDelaySeconds = initialDelay.getSeconds()+180; //TODO Нужна задержка для разницы с Employee. Почему то останавливается обмен после одновременной синхронизации
+//
+//        System.out.printf("\nПлановое время обновления Oracle (Departments): %s", nextRun);
+//
+//        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+//        scheduler.scheduleAtFixedRate(App::syncDepartment, initialDelaySeconds, RestartHour * 60 * 60, TimeUnit.SECONDS);
+//
+//        Runtime.getRuntime().addShutdownHook(new Thread(scheduler::shutdown));
+//    }
 
-            departmentSyncCounter = Counter.builder("department_sync_total")
-                    .description("Total number of department synchronizations")
-                    .tag("application","sync-app")
-                    .register(registry);
+    private static void syncDepartment() {
+//        Timer.Sample sample = Timer.start(registry);
+//        departmentSyncCounter.increment();
 
-            employeeSyncErrorCounter = Counter.builder("employee_sync_errors_total")
-                    .description("Total number of employee synchronization errors")
-                    .tag("application","sync-app")
-                    .register(registry);
+        try {
+            LocalDateTime dStart = LocalDateTime.now();
+            logger.info("Start :" + dStart);
+            System.out.println("\nStart : " + dStart);
 
-            departmentSyncErrorCounter = Counter.builder("department_sync_errors_total")
-                    .description("Total number of department synchronization errors")
-                    .tag("application","sync-app")
-                    .register(registry);
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
+                createDelTableIfNotExists(conn, MAIN_TABLE_DEPARTMENTS, DEL_MAIN_TABLE_DEPARTMENTS);
 
-            employeeSyncTimer = Timer.builder("employee_sync_duration_seconds")
-                    .description("Employee synchronization duration in seconds")
-                    .tag("application","sync-app")
-                    .register(registry);
+                List<RowDepartments> mainRowDepartments = loadRowsFromLocalDepartments(conn);
+                logger.info("Loaded from " + MAIN_TABLE_DEPARTMENTS.toUpperCase() + ": " + mainRowDepartments.size() + " rows");
+                System.out.println("Loaded from " + MAIN_TABLE_DEPARTMENTS.toUpperCase() + ": " + mainRowDepartments.size() + " rows");
 
-            departmentSyncTimer = Timer.builder("department_sync_duration_seconds")
-                    .description("Department synchronization duration in seconds")
-                    .tag("application","sync-app")
-                    .register(registry);
+                List<RowDepartments> oracleRowDepartments = loadRowsFromOracleDepartments(conn);
+                logger.info("Loaded from Oracle (" + "sl.doc_dpt_vw".toUpperCase() + "): " + oracleRowDepartments.size() + " rows");
+                System.out.println("Loaded from Oracle (" + "sl.doc_dpt_vw".toUpperCase() + "): " + oracleRowDepartments.size() + " rows");
 
-            rowsProcessedCounter = Counter.builder("rows_processed_total")
-                    .description("Total number of rows processed")
-                    .tag("application","sync-app")
-                    .register(registry);
+//                rowsProcessedCounter.increment(oracleRowDepartments.size());
 
-            rowsInsertedCounter = Counter.builder("rows_inserted_total")
-                    .description("Total number of rows inserted")
-                    .tag("application","sync-app")
-                    .register(registry);
+                Set<String> oracleHashes = new HashSet<>();
+                for (RowDepartments rowDepartment : oracleRowDepartments) {
+                    oracleHashes.add(rowDepartment.getMD5());
+                }
 
-            rowsDeletedCounter = Counter.builder("rows_deleted_total")
-                    .description("Total number of rows deleted")
-                    .tag("application","sync-app")
-                    .register(registry);
+                List<RowDepartments> rowsToDelete = new ArrayList<>();
+                for (RowDepartments rowDepartment : mainRowDepartments) {
+                    String hash = rowDepartment.getMD5();
+                    if (!oracleHashes.contains(hash)) {
+                        rowsToDelete.add(rowDepartment);
+                    }
+                }
 
-            // Биндеры для мониторинга JVM
-            new JvmMemoryMetrics().bindTo(registry);
-            new JvmGcMetrics().bindTo(registry);
-            new JvmThreadMetrics().bindTo(registry);
-            new ProcessorMetrics().bindTo(registry);
-            new UptimeMetrics().bindTo(registry);
+                insertRowsToDelDepartments(conn, rowsToDelete);
+                deleteRowsFromMainDepartments(conn, rowsToDelete);
+//                rowsDeletedCounter.increment(rowsToDelete.size());
 
-            // Запуск HTTP сервера для Prometheus
-            //     ДОБАВЛНО ВМЕСТО  -  HTTPServer server = new HTTPServer(8080);
-            CollectorRegistry collectorRegistry = registry.getPrometheusRegistry();
+                Set<String> originalMainHashes = new HashSet<>();
+                for (RowDepartments rowDepartment : mainRowDepartments) {
+                    originalMainHashes.add(rowDepartment.getMD5());
+                }
 
-            server = new HTTPServer.Builder()
-                    .withPort(8080)
-                    .withRegistry(collectorRegistry)
-                    .build();
+                int inserted = insertNewRowsDepartments(conn, oracleRowDepartments, originalMainHashes);
+//                rowsInsertedCounter.increment(inserted);
 
-            logger.info("sync-app metrics server started on http://doc-test:8080/metrics");
+            } catch (Exception e) {
+//                departmentSyncErrorCounter.increment();
+                logger.error("Error during department synchronization", e);
+            }
+
+            LocalDateTime dStop = LocalDateTime.now();
+            logger.info("Stop" + dStop);
+            System.out.println("Stop : " + dStop);
+            Duration duration = Duration.between(dStart, dStop);
+            long seconds = duration.getSeconds();
+            logger.info("Duration of unloading time" + seconds + " seconds.");
+            logger.info("===========================================================================================");
+            System.out.printf("Duration of unloading time %d seconds.\n", seconds);
+            System.out.println("===========================================================================================");
 
         } catch (Exception e) {
-            logger.error("Failed to initialize monitoring in sync-app", e);
+//            departmentSyncErrorCounter.increment();
+            logger.error("Error in department synchronization", e);
+        } finally {
+//            sample.stop(departmentSyncTimer);
         }
     }
-    private static void SyncDepartment(int defHour, int defMinutes, Integer periodRestartHour) {
-        int RestartHour = (periodRestartHour == null || periodRestartHour == 0) ? 1 : periodRestartHour;
 
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime nextRun = calculateNextRunTime(now, defHour, defMinutes, RestartHour);
-        Duration initialDelay = Duration.between(now, nextRun);
-        long initialDelaySeconds = initialDelay.getSeconds();
+//    private static void SyncEmployee(int defHour, int defMinutes, Integer periodRestartHour) {
+//        int RestartHour = (periodRestartHour == null || periodRestartHour == 0) ? 1 : periodRestartHour;
+//
+//        LocalDateTime now = LocalDateTime.now();
+//        LocalDateTime nextRun = calculateNextRunTime(now, defHour, defMinutes, RestartHour);
+//        Duration initialDelay = Duration.between(now, nextRun);
+//        long initialDelaySeconds = initialDelay.getSeconds();
+//
+//        System.out.printf("\nПлановое время обновления Oracle (Employees): %s", nextRun);
+//
+//        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+//        scheduler.scheduleAtFixedRate(App::syncEmployees, initialDelaySeconds, RestartHour * 60 * 60, TimeUnit.SECONDS);
+//
+//        Runtime.getRuntime().addShutdownHook(new Thread(scheduler::shutdown));
+//    }
 
-        System.out.printf("\nПлановое время обновления Oracle (Departments): %s", nextRun);
+    private static void syncEmployees() {
+//        Timer.Sample sample = Timer.start(registry);
+//        employeeSyncCounter.increment();
 
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.scheduleAtFixedRate(() -> {
-            Timer.Sample sample = Timer.start(registry);
-            departmentSyncCounter.increment();
+        try {
+            LocalDateTime dStart = LocalDateTime.now();
+            logger.info("Start " + dStart);
+            System.out.println("\nStart : " + dStart);
 
-            try {
-                LocalDateTime dStart = LocalDateTime.now();
-                System.out.println("\nСтарт : " + dStart);
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
+                createDelTableIfNotExists(conn, MAIN_TABLE_EMPLOYEES, DEL_MAIN_TABLE_EMPLOYEES);
 
-                Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-                try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
-                    createDelTableIfNotExists(conn, MAIN_TABLE_DEPARTMENTS, DEL_MAIN_TABLE_DEPARTMENTS);
+                List<RowEmploee> mainRowEmploees = loadRowsFromLocalEmployee(conn);
+                logger.info("Downloaded from " + MAIN_TABLE_EMPLOYEES.toUpperCase() + ": " + mainRowEmploees.size() + " rows");
+                System.out.println("Downloaded from " + MAIN_TABLE_EMPLOYEES.toUpperCase() + ": " + mainRowEmploees.size() + " rows");
 
-                    List<RowDepartments> mainRowDepartments = loadRowsFromLocalDepartments(conn);
-                    System.out.println("Загружено из " + MAIN_TABLE_DEPARTMENTS.toUpperCase() + ": " + mainRowDepartments.size() + " строк");
+                List<RowEmploee> oracleRowEmployees = loadRowsFromOracleEmployee(conn);
+                logger.info("Download from Oracle (" + "sl.doc_emp_vw".toUpperCase() + "): " + oracleRowEmployees.size() + " rows");
+                System.out.println("Download from Oracle (" + "sl.doc_emp_vw".toUpperCase() + "): " + oracleRowEmployees.size() + " rows");
 
-                    List<RowDepartments> oracleRowDepartments = loadRowsFromOracleDepartments(conn);
-                    System.out.println("Загружено из Oracle (" + "sl.doc_dpt_vw".toUpperCase() + "): " + oracleRowDepartments.size() + " строк");
+//                rowsProcessedCounter.increment(oracleRowEmployees.size());
 
-                    rowsProcessedCounter.increment(oracleRowDepartments.size());
-
-                    Set<String> oracleHashes = new HashSet<>();
-                    for (RowDepartments rowDepartment : oracleRowDepartments) {
-                        oracleHashes.add(rowDepartment.getMD5());
-                    }
-
-                    List<RowDepartments> rowsToDelete = new ArrayList<>();
-                    for (RowDepartments rowDepartment : mainRowDepartments) {
-                        String hash = rowDepartment.getMD5();
-                        if (!oracleHashes.contains(hash)) {
-                            rowsToDelete.add(rowDepartment);
-                        }
-                    }
-
-                    insertRowsToDelDepartments(conn, rowsToDelete);
-                    deleteRowsFromMainDepartments(conn, rowsToDelete);
-                    rowsDeletedCounter.increment(rowsToDelete.size());
-
-                    Set<String> originalMainHashes = new HashSet<>();
-                    for (RowDepartments rowDepartment : mainRowDepartments) {
-                        originalMainHashes.add(rowDepartment.getMD5());
-                    }
-
-                    int inserted = insertNewRowsDepartments(conn, oracleRowDepartments, originalMainHashes);
-                    rowsInsertedCounter.increment(inserted);
-
-                } catch (Exception e) {
-                    departmentSyncErrorCounter.increment();
-                    logger.error("Error during department synchronization", e);
+                Set<String> oracleHashes = new HashSet<>();
+                for (RowEmploee rowEmploee : oracleRowEmployees) {
+                    oracleHashes.add(rowEmploee.getMD5());
                 }
 
-                LocalDateTime dStop = LocalDateTime.now();
-                System.out.println("Стоп : " + dStop);
-                Duration duration = Duration.between(dStart, dStop);
-                long seconds = duration.getSeconds();
-                System.out.printf("Время выгрузки %d секунд.\n", seconds);
-                System.out.println("===========================================================================================");
-
-            } catch (Exception e) {
-                departmentSyncErrorCounter.increment();
-                logger.error("Error in department synchronization", e);
-            } finally {
-                sample.stop(departmentSyncTimer);
-            }
-        }, initialDelaySeconds, RestartHour * 60 * 60, TimeUnit.SECONDS);
-
-        Runtime.getRuntime().addShutdownHook(new Thread(scheduler::shutdown));
-    }
-
-    private static void SyncEmployee(int defHour, int defMinutes, Integer periodRestartHour) {
-        int RestartHour = (periodRestartHour == null || periodRestartHour == 0) ? 1 : periodRestartHour;
-
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime nextRun = calculateNextRunTime(now, defHour, defMinutes, RestartHour);
-        Duration initialDelay = Duration.between(now, nextRun);
-        long initialDelaySeconds = initialDelay.getSeconds();
-
-        System.out.printf("\nПлановое время обновления Oracle (Employees): %s", nextRun);
-
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.scheduleAtFixedRate(() -> {
-            Timer.Sample sample = Timer.start(registry);
-            employeeSyncCounter.increment();
-
-            try {
-                LocalDateTime dStart = LocalDateTime.now();
-                System.out.println("\nСтарт : " + dStart);
-
-                Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-                try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
-                    createDelTableIfNotExists(conn, MAIN_TABLE_EMPLOYEES, DEL_MAIN_TABLE_EMPLOYEES);
-
-                    List<RowEmploee> mainRowEmploees = loadRowsFromLocalEmployee(conn);
-                    System.out.println("Загружено из " + MAIN_TABLE_EMPLOYEES.toUpperCase() + ": " + mainRowEmploees.size() + " строк");
-
-                    List<RowEmploee> oracleRowEmployees = loadRowsFromOracleEmployee(conn);
-                    System.out.println("Загружено из Oracle (" + "sl.doc_emp_vw".toUpperCase() + "): " + oracleRowEmployees.size() + " строк");
-
-                    rowsProcessedCounter.increment(oracleRowEmployees.size());
-
-                    Set<String> oracleHashes = new HashSet<>();
-                    for (RowEmploee rowEmploee : oracleRowEmployees) {
-                        oracleHashes.add(rowEmploee.getMD5());
+                List<RowEmploee> rowsToDelete = new ArrayList<>();
+                for (RowEmploee rowEmploee : mainRowEmploees) {
+                    String hash = rowEmploee.getMD5();
+                    if (!oracleHashes.contains(hash)) {
+                        rowsToDelete.add(rowEmploee);
                     }
-
-                    List<RowEmploee> rowsToDelete = new ArrayList<>();
-                    for (RowEmploee rowEmploee : mainRowEmploees) {
-                        String hash = rowEmploee.getMD5();
-                        if (!oracleHashes.contains(hash)) {
-                            rowsToDelete.add(rowEmploee);
-                        }
-                    }
-
-                    insertRowsToDelEmployees(conn, rowsToDelete);
-                    deleteRowsFromMainEmployees(conn, rowsToDelete);
-                    rowsDeletedCounter.increment(rowsToDelete.size());
-
-                    Set<String> originalMainHashes = new HashSet<>();
-                    for (RowEmploee rowEmploee : mainRowEmploees) {
-                        originalMainHashes.add(rowEmploee.getMD5());
-                    }
-
-                    int inserted = insertNewRowsEmployees(conn, oracleRowEmployees, originalMainHashes);
-                    rowsInsertedCounter.increment(inserted);
-
-                } catch (Exception e) {
-                    employeeSyncErrorCounter.increment();
-                    logger.error("Error during employee synchronization", e);
                 }
 
-                LocalDateTime dStop = LocalDateTime.now();
-                System.out.println("Стоп : " + dStop);
-                Duration duration = Duration.between(dStart, dStop);
-                long seconds = duration.getSeconds();
-                System.out.printf("Время выгрузки %d секунд.\n", seconds);
-                System.out.println("===========================================================================================");
+                insertRowsToDelEmployees(conn, rowsToDelete);
+                deleteRowsFromMainEmployees(conn, rowsToDelete);
+//                rowsDeletedCounter.increment(rowsToDelete.size());
+
+                Set<String> originalMainHashes = new HashSet<>();
+                for (RowEmploee rowEmploee : mainRowEmploees) {
+                    originalMainHashes.add(rowEmploee.getMD5());
+                }
+
+                int inserted = insertNewRowsEmployees(conn, oracleRowEmployees, originalMainHashes);
+//                rowsInsertedCounter.increment(inserted);
 
             } catch (Exception e) {
-                employeeSyncErrorCounter.increment();
-                logger.error("Error in employee synchronization", e);
-            } finally {
-                sample.stop(employeeSyncTimer);
+//                employeeSyncErrorCounter.increment();
+                logger.error("Error during employee synchronization", e);
             }
-        }, initialDelaySeconds, RestartHour * 60 * 60, TimeUnit.SECONDS);
 
-        Runtime.getRuntime().addShutdownHook(new Thread(scheduler::shutdown));
+            LocalDateTime dStop = LocalDateTime.now();
+            logger.info("Stop : " + dStop);
+            System.out.println("Stop : " + dStop);
+            Duration duration = Duration.between(dStart, dStop);
+            long seconds = duration.getSeconds();
+            logger.info("Duration of unloading time " + seconds + " seconds");
+            System.out.printf("Duration of unloading time %d seconds.\n", seconds);
+            logger.info("===========================================================================================");
+            System.out.println("===========================================================================================");
+
+        } catch (Exception e) {
+//            employeeSyncErrorCounter.increment();
+            logger.error("Error in employee synchronization", e);
+        } finally {
+//            sample.stop(employeeSyncTimer);
+        }
     }
 
     // Метод для вычисления следующего времени запуска
-    private static LocalDateTime calculateNextRunTime(LocalDateTime now, int hour, int minute, int restartHours) {
-        // Базовое время: текущий день в hour:minute
-        LocalDateTime baseTime = now.toLocalDate().atTime(hour, minute, 0, 0);
-
-        if (now.isBefore(baseTime)) {
-            // Если сейчас до базового времени, следующий запуск в базовое время
-            return baseTime;
-        } else {
-            // Вычислить разницу в часах от базового времени до now
-            long hoursSinceBase = Duration.between(baseTime, now).toHours();
-
-            // Найти следующий слот: базовое + (floor(hoursSinceBase / restartHours) + 1) * restartHours
-            long slotsPassed = (hoursSinceBase / restartHours) + 1;
-            long nextHourOffset = slotsPassed * restartHours;
-
-            // Следующее время: базовое + nextHourOffset часов
-            // LocalDateTime автоматически обработает переход на следующий день
-            return baseTime.plusHours(nextHourOffset);
-        }
-    }
+//    private static LocalDateTime calculateNextRunTime(LocalDateTime now, int hour, int minute, int restartHours) {
+//        // Базовое время: текущий день в hour:minute
+//        LocalDateTime baseTime = now.toLocalDate().atTime(hour, minute, 0, 0);
+//
+//        if (now.isBefore(baseTime)) {
+//            // Если сейчас до базового времени, следующий запуск в базовое время
+//            return baseTime;
+//        } else {
+//            // Вычислить разницу в часах от базового времени до now
+//            long hoursSinceBase = Duration.between(baseTime, now).toHours();
+//
+//            // Найти следующий слот: базовое + (floor(hoursSinceBase / restartHours) + 1) * restartHours
+//            long slotsPassed = (hoursSinceBase / restartHours) + 1;
+//            long nextHourOffset = slotsPassed * restartHours;
+//
+//            // Следующее время: базовое + nextHourOffset часов
+//            // LocalDateTime автоматически обработает переход на следующий день
+//            return baseTime.plusHours(nextHourOffset);
+//        }
+//    }
 
     // Создать del_dEmployes, если не существует
     private static void createDelTableIfNotExists(Connection conn, String MAINTABLE, String NEWTABLE) throws SQLException {
@@ -518,7 +562,8 @@ public class App {
     private static List<RowEmploee> loadRowsFromLocalEmployee(Connection conn) throws SQLException {
         List<RowEmploee> rowEmploees = new ArrayList<>();
         String query = "SELECT EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, LOGINNAME, USER_SID, DATE_CREATE FROM " + App.MAIN_TABLE_EMPLOYEES;
-        System.out.println("  Выполняется запрос: " + App.MAIN_TABLE_EMPLOYEES);
+        logger.info("  Running query : " + App.MAIN_TABLE_EMPLOYEES);
+        System.out.println("  Running query : " + App.MAIN_TABLE_EMPLOYEES);
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
                 String EMPLOYEEID = rs.getString("EMPLOYEEID");
@@ -544,7 +589,8 @@ public class App {
     private static List<RowDepartments> loadRowsFromLocalDepartments(Connection conn) throws SQLException {
         List<RowDepartments> rowDepartments = new ArrayList<>();
         String query = "SELECT DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN, DATE_CREATE  FROM " + App.MAIN_TABLE_DEPARTMENTS;
-        System.out.println("  Выполняется запрос: к БД " + App.MAIN_TABLE_DEPARTMENTS);
+        logger.info("  Request running : DB " + App.MAIN_TABLE_DEPARTMENTS);
+        System.out.println("  Request running : DB " + App.MAIN_TABLE_DEPARTMENTS);
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
                 String DepartmentID = rs.getString("DepartmentID");
@@ -569,7 +615,8 @@ public class App {
     private static List<RowEmploee> loadRowsFromOracleEmployee(Connection conn) throws SQLException {
         List<RowEmploee> rowEmploees = new ArrayList<>();
         String query = "SELECT EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, LOGINNAME, USER_SID, GETDATE() AS DATE_CREATE FROM OPENQUERY(oraclecis, 'SELECT EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, LOGINNAME, USER_SID FROM SL.DOC_EMP_VW')";
-        System.out.println("  Выполняется запрос к Oracle (Employees): " + "SL.DOC_EMP_VW");
+        logger.info("  Request running Oracle (Employees) : SL.DOC_EMP_VW");
+        System.out.println("  Request running Oracle (Employees) : SL.DOC_EMP_VW");
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
                 String EMPLOYEEID = rs.getString("EMPLOYEEID");
@@ -595,7 +642,8 @@ public class App {
     private static List<RowDepartments> loadRowsFromOracleDepartments(Connection conn) throws SQLException {
         List<RowDepartments> rowDepartments = new ArrayList<>();
         String query = "SELECT ID as DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN, GETDATE() AS DATE_CREATE FROM OPENQUERY(oraclecis, 'SELECT ID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN FROM sl.doc_dpt_vw')";
-        System.out.println("  Выполняется запрос к Oracle (Departments): " + "sl.doc_dpt_vw");
+        logger.info("  Request running Oracle (Departments): SL.DOC_DPT_VW");
+        System.out.println("  Request running Oracle (Departments): SL.DOC_DPT_VW");
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
                 String DepartmentID = rs.getString("DepartmentID");
@@ -646,7 +694,8 @@ public class App {
             }
             if (inserted > 0) {
                 pstmt.executeBatch();
-                System.out.println("Вставлено новых строк: " + inserted);
+                logger.info("Inserted a new rows : " + inserted);
+                System.out.println("Inserted a new rows : " + inserted);
             }
             return inserted;
         }
@@ -678,7 +727,8 @@ public class App {
             }
             if (inserted > 0) {
                 pstmt.executeBatch();
-                System.out.println("Вставлено новых строк: " + inserted);
+                logger.info("Inserted a new rows : " + inserted);
+                System.out.println("Inserted a new rows : " + inserted);
             }
             return inserted;
         }
@@ -708,7 +758,8 @@ public class App {
             }
             if (!rowEmploees.isEmpty()) {
                 pstmt.executeBatch();
-                System.out.println("   Выгружено в " + DEL_MAIN_TABLE_EMPLOYEES + ": " + rowEmploees.size() + " строк.");
+                logger.info("   Unloaded in " + DEL_MAIN_TABLE_EMPLOYEES + ": " + rowEmploees.size() + " rows.");
+                System.out.println("   Unloaded in " + DEL_MAIN_TABLE_EMPLOYEES + ": " + rowEmploees.size() + " rows.");
             }
         }
     }
@@ -733,7 +784,8 @@ public class App {
             }
             if (!rowDepartments.isEmpty()) {
                 pstmt.executeBatch();
-                System.out.println("   Выгружено в " + DEL_MAIN_TABLE_DEPARTMENTS + ": " + rowDepartments.size() + " строк.");
+                logger.info("   Unloaded in " + DEL_MAIN_TABLE_DEPARTMENTS + ": " + rowDepartments.size() + " rows.");
+                System.out.println("   Unloaded in " + DEL_MAIN_TABLE_DEPARTMENTS + ": " + rowDepartments.size() + " rows.");
             }
         }
     }
@@ -747,7 +799,8 @@ public class App {
             }
             if (!rowEmployees.isEmpty()) {
                 pstmt.executeBatch();
-                System.out.println("   Удалено из " + MAIN_TABLE_EMPLOYEES + ": " + rowEmployees.size() + " строк.");
+                logger.info("   Delete from " + MAIN_TABLE_EMPLOYEES + ": " + rowEmployees.size() + " rows.");
+                System.out.println("   Delete from " + MAIN_TABLE_EMPLOYEES + ": " + rowEmployees.size() + " rows.");
             }
         }
     }
@@ -760,7 +813,8 @@ public class App {
             }
             if (!rowDepartments.isEmpty()) {
                 pstmt.executeBatch();
-                System.out.println("   Удалено из " + MAIN_TABLE_DEPARTMENTS + ": " + rowDepartments.size() + " строк.");
+                logger.info("   Delete from " + MAIN_TABLE_EMPLOYEES + ": " + rowDepartments.size() + " rows.");
+                System.out.println("   Delete from " + MAIN_TABLE_DEPARTMENTS + ": " + rowDepartments.size() + " rows.");
             }
         }
     }
