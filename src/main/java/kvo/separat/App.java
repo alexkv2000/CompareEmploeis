@@ -10,47 +10,53 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 // Micrometer imports
-//import io.prometheus.client.CollectorRegistry;
-//import io.micrometer.core.instrument.Counter;
-//import io.micrometer.core.instrument.Timer;
-//import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
-//import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
-//import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
-//import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
-//import io.micrometer.core.instrument.binder.system.UptimeMetrics;
-//import io.micrometer.prometheus.PrometheusConfig;
-//import io.micrometer.prometheus.PrometheusMeterRegistry;
-//import io.prometheus.client.exporter.HTTPServer;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
+import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
+import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
+import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
+import io.micrometer.core.instrument.binder.system.UptimeMetrics;
+import io.micrometer.prometheus.PrometheusConfig;
+import io.micrometer.prometheus.PrometheusMeterRegistry;
+import org.springframework.stereotype.Component;
+@Component
 public class App {
+//    @Value("${server.port}")
+//    private static int port;
+//    @Value("${server.address}")
+//    private static String server_address;
+//    private static final int port = 8080;
+//    private static final String server_address = "W17-007926";
 //    private static HTTPServer server;
     private static final Logger logger = LoggerFactory.getLogger(App.class);
-
+    static final String ROWS = " rows";
+    static final String DATECREATE = "DATE_CREATE";
+    static final String MANAGER = "MANAGERID";
     // Данные для подключения к базе данных
-    private static String DB_URL;
-    private static String USER;
-    private static String PASS;
+    private static String dbUrl;
+    private static String user;
+    private static String pass;
 
     // Названия таблиц
     private static final String MAIN_TABLE_EMPLOYEES = "dEmployes";
     private static final String DEL_MAIN_TABLE_EMPLOYEES = "del_Employes"; // Для удаляемых строк
-    private static final String MAIN_TABLE_DEPARTMENTS = "dDepartments";
+    private static final String MAIN_TABLE_DEPARTMENTS = "dDepartments".toUpperCase();
     private static final String DEL_MAIN_TABLE_DEPARTMENTS = "del_Departments"; // Для удаляемых строк
     // Micrometer metrics
-//    private static PrometheusMeterRegistry registry;
-//    private static Counter employeeSyncCounter;
-//    private static Counter departmentSyncCounter;
-//    private static Counter employeeSyncErrorCounter;
-//    private static Counter departmentSyncErrorCounter;
-//    private static Timer employeeSyncTimer;
-//    private static Timer departmentSyncTimer;
-//    private static Counter rowsProcessedCounter;
-//    private static Counter rowsInsertedCounter;
-//    private static Counter rowsDeletedCounter;
+    private static PrometheusMeterRegistry registry;
+    private static Counter employeeSyncCounter;
+    private static Counter departmentSyncCounter;
+    private static Counter employeeSyncErrorCounter;
+    private static Counter departmentSyncErrorCounter;
+    private static Timer employeeSyncTimer;
+    private static Timer departmentSyncTimer;
+    private static Counter rowsProcessedCounter;
+    private static Counter rowsInsertedCounter;
+    private static Counter rowsDeletedCounter;
+    private static JvmGcMetrics jvmGcMetrics;
     public enum AnsiColor {
         RESET("\033[0m"), BLACK("\033[30m"), RED("\033[31m"), GREEN("\033[32m"), YELLOW("\033[33m"), BLUE("\033[34m"), PURPLE("\033[35m"), CYAN("\033[36m"), WHITE("\033[37m"),
         BRIGHT_BLACK("\033[90m"), BRIGHT_RED("\033[91m"), BRIGHT_GREEN("\033[92m"), BRIGHT_YELLOW("\033[93m"), BRIGHT_BLUE("\033[94m"), BRIGHT_PURPLE("\033[95m"), BRIGHT_CYAN("\033[96m"), BRIGHT_WHITE("\033[97m"),
@@ -90,25 +96,27 @@ public class App {
         String USER_SID;
         String date_create;
 
-        RowEmploee(String EMPLOYEEID, String LASTNAMERUS, String NAMERUS, String MIDDLENAMERUS, String TABNOM, String JOBTITLERUS, String LOGINNAME, String email, String IPPHONE, String WORKPHONE, String TYPE_WORK, String DEPARTMENTID, String MANAGERID, String USER_SID, String date_create) {
-            this.EMPLOYEEID = EMPLOYEEID;
-            this.LASTNAMERUS = LASTNAMERUS;
-            this.NAMERUS = NAMERUS;
-            this.MIDDLENAMERUS = MIDDLENAMERUS;
-            this.TABNOM = TABNOM;
-            this.JOBTITLERUS = JOBTITLERUS;
-            this.LOGINNAME = LOGINNAME;
+        @SuppressWarnings("java:S107")
+        RowEmploee(String employeeID, String lastnameRUS, String nameRUS, String middleNameRUS, String tabNom, String jobTitleRUS, String loginName, String email, String ipPhone, String workPhone, String typeWork, String departmentID, String managerID, String userSID, String dateCreate) {
+            this.EMPLOYEEID = employeeID;
+            this.LASTNAMERUS = lastnameRUS;
+            this.NAMERUS = nameRUS;
+            this.MIDDLENAMERUS = middleNameRUS;
+            this.TABNOM = tabNom;
+            this.JOBTITLERUS = jobTitleRUS;
+            this.LOGINNAME = loginName;
             this.email = email;
-            this.IPPHONE = IPPHONE;
-            this.WORKPHONE = WORKPHONE;
-            this.TYPE_WORK = TYPE_WORK;
-            this.DEPARTMENTID = DEPARTMENTID;
-            this.MANAGERID = MANAGERID;
-            this.USER_SID = USER_SID;
-            this.date_create = date_create;
+            this.IPPHONE = ipPhone;
+            this.WORKPHONE = workPhone;
+            this.TYPE_WORK = typeWork;
+            this.DEPARTMENTID = departmentID;
+            this.MANAGERID = managerID;
+            this.USER_SID = userSID;
+            this.date_create = dateCreate;
         }
 
         // MD5-хэш уникальных полей
+        @SuppressWarnings("java:S4790")
         String getMD5() throws NoSuchAlgorithmException {
             String data = EMPLOYEEID + "|" + LASTNAMERUS + "|" + NAMERUS + "|" + MIDDLENAMERUS + "|" + TABNOM + "|" + JOBTITLERUS + "|" + LOGINNAME + "|" + email + "|" + IPPHONE + "|" + WORKPHONE + "|" + TYPE_WORK + "|" + DEPARTMENTID + "|" + MANAGERID + "|" + USER_SID;
             MessageDigest md = MessageDigest.getInstance("MD5");
@@ -159,25 +167,26 @@ public class App {
         String ID_DEPT_OWN;
         String date_create;
 
-        RowDepartments(String DepartmentID, String NAME, String MANAGERID, String MANAGERLOGINNAME, String PARENTID, String TYPE_NAME, String CODE, String B_DATE, String E_DATE, String DATA_INTEG, String E_DOC, String ID_DEPT_OWN, String date_create) {
-            this.DepartmentID = DepartmentID;
-            this.NAME = NAME;
-            this.MANAGERID = MANAGERID;
-            this.MANAGERLOGINNAME = MANAGERLOGINNAME;
-            this.PARENTID = PARENTID;
-            this.TYPE_NAME = TYPE_NAME;
-            this.CODE = CODE;
-            this.B_DATE = B_DATE;
-            this.E_DATE = E_DATE;
-            this.DATA_INTEG = DATA_INTEG;
-            this.E_DOC = E_DOC;
-            this.ID_DEPT_OWN = ID_DEPT_OWN;
-            this.date_create = date_create;
+        @SuppressWarnings("java:S107")
+        RowDepartments(String departmentID, String name, String managerID, String managerLoginName, String parentID, String typeName, String code, String bDate, String eDate, String dataIntegration, String eDoc, String idDeptOwn, String dateCreate) {
+            this.DepartmentID = departmentID;
+            this.NAME = name;
+            this.MANAGERID = managerID;
+            this.MANAGERLOGINNAME = managerLoginName;
+            this.PARENTID = parentID;
+            this.TYPE_NAME = typeName;
+            this.CODE = code;
+            this.B_DATE = bDate;
+            this.E_DATE = eDate;
+            this.DATA_INTEG = dataIntegration;
+            this.E_DOC = eDoc;
+            this.ID_DEPT_OWN = idDeptOwn;
+            this.date_create = dateCreate;
         }
 
         // MD5-хэш уникальных полей
+        @SuppressWarnings("java:S4790")
         String getMD5() throws NoSuchAlgorithmException {
-//            String data = DepartmentID + "|" + NAME + "|" + MANAGERID + "|" + MANAGERLOGINNAME + "|" + PARENTID + "|" + TYPE_NAME + "|" + CODE + "|" + B_DATE + "|" + E_DATE + "|" + DATA_INTEG + "|" + E_DOC + "|" + ID_DEPT_OWN;
             String data = DepartmentID + "|" + NAME + "|" + MANAGERID + "|" + MANAGERLOGINNAME + "|" + PARENTID + "|" + TYPE_NAME + "|" + CODE + "|" + B_DATE + "|" + E_DATE + "|" + E_DOC + "|" + ID_DEPT_OWN;
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] hash = md.digest(data.getBytes());
@@ -206,17 +215,22 @@ public class App {
         }
         @Override
         public int hashCode() {
-//            return Objects.hash(DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN);
             return Objects.hash(DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, E_DOC, ID_DEPT_OWN);
         }
     }
     public static void main(String[] args) throws IOException {
         // Инициализация мониторинга
-// initializeMonitoring();
+        initializeMonitoring();
+        // Добавляем обработчик завершения работы приложения
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (jvmGcMetrics != null) {
+                jvmGcMetrics.close();
+            }
+        }));
 
         currentDir = System.getProperty("user.dir");
         String configPath = currentDir + "\\src\\main\\java\\config\\settingSynDictionary.txt";
-        String syncDic = "Departmint";
+        String syncDic = "department";
 
         for (String arg : args) {
             if (arg.startsWith("config.path=")) {
@@ -228,9 +242,9 @@ public class App {
         }
 
         ConfigLoader configLoader = new ConfigLoader(configPath);
-        DB_URL = configLoader.getProperty("DB_URL");
-        USER = configLoader.getProperty("USER");
-        PASS = configLoader.getProperty("PASS");
+        dbUrl = configLoader.getProperty("DB_URL");
+        user = configLoader.getProperty("USER");
+        pass = configLoader.getProperty("PASS");
 //        int departmentDefHour = Integer.parseInt(configLoader.getProperty("departmentDefHour"));
 //        int departmentDefMinutes = Integer.parseInt(configLoader.getProperty("departmentDefMinutes"));
 //        int departmentRestartHours = Integer.parseInt(configLoader.getProperty("departmentRestartHours"));
@@ -242,149 +256,108 @@ public class App {
         // Запуск синхронизации
         switch (syncDic.toLowerCase()) {
             case "department" -> {
-                syncDepartment();
-                try {
-                    Thread.sleep(120000);  // Ожидание 2 минуты (10000 для 10 сек)
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();  // Обработка прерывания
-                }
+                logSyncExecution(App::syncDepartment);
+                safeSleep();
             }
             case "employees" -> {
-                syncEmployees();
-                try {
-                    Thread.sleep(120000);  // Ожидание 2 минуты (10000 для 10 сек)
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();  // Обработка прерывания
-                }
+                logSyncExecution(App::syncEmployees);
+                safeSleep();
             }
             default -> {
-                syncDepartment();
-                try {
-                    Thread.sleep(120000);  // Ожидание 2 минуты (10000 для 10 сек)
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();  // Обработка прерывания
-                }
-                syncEmployees();
-                try {
-                    Thread.sleep(120000);  // Ожидание 2 минуты (10000 для 10 сек)
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();  // Обработка прерывания
-                }
+                logSyncExecution(App::syncDepartment);
+                safeSleep();
+                logSyncExecution(App::syncEmployees);
+                safeSleep();
             }
         }
-//        SyncEmployee(employeeDefHour, employeeDefMinutes, employeeRestartHours);
-//        SyncDepartment(departmentDefHour, departmentDefMinutes, departmentRestartHours);
-
-        logger.info("Application started with monitoring on port 8080");
     }
-//    private static void initializeMonitoring() {
-//        try {
+
+    private static void initializeMonitoring() {
+        final String APPLICATION = "application";
+        final String SYNCAPP = "sync-app";
+        try {
             // Создание Prometheus registry
-//            registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+            registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
 
             // Инициализация метрик
-//            employeeSyncCounter = Counter.builder("employee_sync_total")
-//                    .description("Total number of employee synchronizations")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            departmentSyncCounter = Counter.builder("department_sync_total")
-//                    .description("Total number of department synchronizations")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            employeeSyncErrorCounter = Counter.builder("employee_sync_errors_total")
-//                    .description("Total number of employee synchronization errors")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            departmentSyncErrorCounter = Counter.builder("department_sync_errors_total")
-//                    .description("Total number of department synchronization errors")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            employeeSyncTimer = Timer.builder("employee_sync_duration_seconds")
-//                    .description("Employee synchronization duration in seconds")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            departmentSyncTimer = Timer.builder("department_sync_duration_seconds")
-//                    .description("Department synchronization duration in seconds")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            rowsProcessedCounter = Counter.builder("rows_processed_total")
-//                    .description("Total number of rows processed")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            rowsInsertedCounter = Counter.builder("rows_inserted_total")
-//                    .description("Total number of rows inserted")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            rowsDeletedCounter = Counter.builder("rows_deleted_total")
-//                    .description("Total number of rows deleted")
-//                    .tag("application","sync-app")
-//                    .register(registry);
-//
-//            // Биндеры для мониторинга JVM
-//            // Включить для сбора метрики
-//            new JvmMemoryMetrics().bindTo(registry);
-//            new JvmGcMetrics().bindTo(registry);
-//            new JvmThreadMetrics().bindTo(registry);
-//            new ProcessorMetrics().bindTo(registry);
-//            new UptimeMetrics().bindTo(registry);
-//
-//            // Запуск HTTP сервера для Prometheus
-//            //     ДОБАВЛНО ВМЕСТО  -  HTTPServer server = new HTTPServer(8080);
-//            // Включить для сбора метрики
-//            CollectorRegistry collectorRegistry = registry.getPrometheusRegistry();
-//            server = new HTTPServer.Builder().withPort(8080).withRegistry(collectorRegistry).build();
-//            logger.info("sync-app metrics server started on http://doc-test:8080/metrics");
-//
-//        } catch (Exception e) {
-//            logger.error("Failed to initialize monitoring in sync-app", e);
-//        }
-//    }
-//    private static void SyncDepartment(int defHour, int defMinutes, Integer periodRestartHour) {
-//        int RestartHour = (periodRestartHour == null || periodRestartHour == 0) ? 1 : periodRestartHour;
-//
-//        LocalDateTime now = LocalDateTime.now();
-//        LocalDateTime nextRun = calculateNextRunTime(now, defHour, defMinutes, RestartHour);
-//        Duration initialDelay = Duration.between(now, nextRun);
-//        long initialDelaySeconds = initialDelay.getSeconds()+180; //TODO Нужна задержка для разницы с Employee. Почему то останавливается обмен после одновременной синхронизации
-//
-//        System.out.printf("\nПлановое время обновления Oracle (Departments): %s", nextRun);
-//
-//        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-//        scheduler.scheduleAtFixedRate(App::syncDepartment, initialDelaySeconds, RestartHour * 60 * 60, TimeUnit.SECONDS);
-//
-//        Runtime.getRuntime().addShutdownHook(new Thread(scheduler::shutdown));
-//    }
+            employeeSyncCounter = Counter.builder("employee_sync_total")
+                    .description("Total number of employee synchronizations")
+                    .tag(APPLICATION,SYNCAPP)
+                    .register(registry);
+
+            departmentSyncCounter = Counter.builder("department_sync_total")
+                    .description("Total number of department synchronizations")
+                    .tag(APPLICATION,SYNCAPP)
+                    .register(registry);
+
+            employeeSyncErrorCounter = Counter.builder("employee_sync_errors_total")
+                    .description("Total number of employee synchronization errors")
+                    .tag(APPLICATION,SYNCAPP)
+                    .register(registry);
+
+            departmentSyncErrorCounter = Counter.builder("department_sync_errors_total")
+                    .description("Total number of department synchronization errors")
+                    .tag(APPLICATION,"sync-app")
+                    .register(registry);
+
+            employeeSyncTimer = Timer.builder("employee_sync_duration_seconds")
+                    .description("Employee synchronization duration in seconds")
+                    .tag(APPLICATION,SYNCAPP)
+                    .register(registry);
+
+            departmentSyncTimer = Timer.builder("department_sync_duration_seconds")
+                    .description("Department synchronization duration in seconds")
+                    .tag(APPLICATION,SYNCAPP)
+                    .register(registry);
+
+            rowsProcessedCounter = Counter.builder("rows_processed_total")
+                    .description("Total number of rows processed")
+                    .tag(APPLICATION,SYNCAPP)
+                    .register(registry);
+
+            rowsInsertedCounter = Counter.builder("rows_inserted_total")
+                    .description("Total number of rows inserted")
+                    .tag(APPLICATION,SYNCAPP)
+                    .register(registry);
+
+            rowsDeletedCounter = Counter.builder("rows_deleted_total")
+                    .description("Total number of rows deleted")
+                    .tag(APPLICATION,SYNCAPP)
+                    .register(registry);
+
+            // Биндеры для мониторинга JVM
+            new JvmMemoryMetrics().bindTo(registry);
+            jvmGcMetrics = new JvmGcMetrics();
+            jvmGcMetrics.bindTo(registry);
+            new JvmThreadMetrics().bindTo(registry);
+            new ProcessorMetrics().bindTo(registry);
+            new UptimeMetrics().bindTo(registry);
+
+        } catch (Exception e) {
+            logger.error("Failed to initialize monitoring in sync-app", e);
+        }
+    }
 
     private static void syncDepartment() {
-//        Timer.Sample sample = Timer.start(registry);
-//        departmentSyncCounter.increment();
+        Timer.Sample sample = Timer.start(registry);
+        departmentSyncCounter.increment();
 
         try {
-            LocalDateTime dStart = LocalDateTime.now();
-            logger.info("Start :" + dStart);
-            System.out.println("\nStart : " + dStart);
 
-            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
+//            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            try (Connection conn = DriverManager.getConnection(dbUrl, user, pass)) {
                 createDelTableIfNotExists(conn, MAIN_TABLE_DEPARTMENTS, DEL_MAIN_TABLE_DEPARTMENTS);
 
                 List<RowDepartments> mainRowDepartments = loadRowsFromLocalDepartments(conn);
-                logger.info("Loaded from " + MAIN_TABLE_DEPARTMENTS.toUpperCase() + ": " + mainRowDepartments.size() + " rows");
-                System.out.println("Loaded from " + MAIN_TABLE_DEPARTMENTS.toUpperCase() + ": " + mainRowDepartments.size() + " rows");
+                logger.info("Loaded from {} : {} {}", MAIN_TABLE_DEPARTMENTS, mainRowDepartments.size(), ROWS);
+
 
                 List<RowDepartments> oracleRowDepartments = loadRowsFromOracleDepartments(conn);
-                logger.info("Loaded from Oracle (" + "sl.doc_dpt_vw".toUpperCase() + "): " + oracleRowDepartments.size() + " rows");
-                System.out.println("Loaded from Oracle (" + "sl.doc_dpt_vw".toUpperCase() + "): " + oracleRowDepartments.size() + " rows");
+                if (logger.isInfoEnabled()) {
+                    logger.info("Loaded from Oracle ({}): {} {}", "sl.doc_dpt_vw".toUpperCase(), oracleRowDepartments.size(), ROWS);
+                }
 
-//                rowsProcessedCounter.increment(oracleRowDepartments.size());
+                rowsProcessedCounter.increment(oracleRowDepartments.size());
 
                 Set<String> oracleHashes = new HashSet<>();
                 for (RowDepartments rowDepartment : oracleRowDepartments) {
@@ -401,7 +374,7 @@ public class App {
 
                 insertRowsToDelDepartments(conn, rowsToDelete);
                 deleteRowsFromMainDepartments(conn, rowsToDelete);
-//                rowsDeletedCounter.increment(rowsToDelete.size());
+                rowsDeletedCounter.increment(rowsToDelete.size());
 
                 Set<String> originalMainHashes = new HashSet<>();
                 for (RowDepartments rowDepartment : mainRowDepartments) {
@@ -409,28 +382,26 @@ public class App {
                 }
 
                 int inserted = insertNewRowsDepartments(conn, oracleRowDepartments, originalMainHashes);
-//                rowsInsertedCounter.increment(inserted);
+                rowsInsertedCounter.increment(inserted);
 
-            } catch (Exception e) {
-//                departmentSyncErrorCounter.increment();
-                logger.error("Error during department synchronization", e);
             }
+//            catch (Exception e) {
+//                departmentSyncErrorCounter.increment();
+//                logger.error("Error during department synchronization", e);
+//            }
 
-            LocalDateTime dStop = LocalDateTime.now();
-            logger.info("Stop" + dStop);
-            System.out.println("Stop : " + dStop);
-            Duration duration = Duration.between(dStart, dStop);
-            long seconds = duration.getSeconds();
-            logger.info("Duration of unloading time" + seconds + " seconds.");
-            logger.info("===========================================================================================");
-            System.out.printf("Duration of unloading time %d seconds.\n", seconds);
-            System.out.println("===========================================================================================");
+//            LocalDateTime dStop = LocalDateTime.now();
+//            logger.info("Stop {}", dStop);
+//            Duration duration = Duration.between(dStart, dStop);
+//            long seconds = duration.getSeconds();
+//            logger.info("Duration of unloading time {} seconds.", seconds);
+//            logger.info("===========================================================================================");
 
         } catch (Exception e) {
-//            departmentSyncErrorCounter.increment();
+            departmentSyncErrorCounter.increment();
             logger.error("Error in department synchronization", e);
         } finally {
-//            sample.stop(departmentSyncTimer);
+            sample.stop(departmentSyncTimer);
         }
     }
 
@@ -451,27 +422,22 @@ public class App {
 //    }
 
     private static void syncEmployees() {
-//        Timer.Sample sample = Timer.start(registry);
-//        employeeSyncCounter.increment();
+        Timer.Sample sample = Timer.start(registry);
+        employeeSyncCounter.increment();
 
         try {
-            LocalDateTime dStart = LocalDateTime.now();
-            logger.info("Start " + dStart);
-            System.out.println("\nStart : " + dStart);
-
-            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
+//            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            try (Connection conn = DriverManager.getConnection(dbUrl, user, pass)) {
                 createDelTableIfNotExists(conn, MAIN_TABLE_EMPLOYEES, DEL_MAIN_TABLE_EMPLOYEES);
 
                 List<RowEmploee> mainRowEmploees = loadRowsFromLocalEmployee(conn);
-                logger.info("Downloaded from " + MAIN_TABLE_EMPLOYEES.toUpperCase() + ": " + mainRowEmploees.size() + " rows");
-                System.out.println("Downloaded from " + MAIN_TABLE_EMPLOYEES.toUpperCase() + ": " + mainRowEmploees.size() + " rows");
+                String mainTableEmployeesUp = MAIN_TABLE_EMPLOYEES.toUpperCase();
+                logger.info("Downloaded from {}: {} {}", mainTableEmployeesUp, mainRowEmploees.size(), ROWS);
 
                 List<RowEmploee> oracleRowEmployees = loadRowsFromOracleEmployee(conn);
-                logger.info("Download from Oracle (" + "sl.doc_emp_vw".toUpperCase() + "): " + oracleRowEmployees.size() + " rows");
-                System.out.println("Download from Oracle (" + "sl.doc_emp_vw".toUpperCase() + "): " + oracleRowEmployees.size() + " rows");
+                logger.info("Download from Oracle ({}): {} {}", "sl.doc_emp_vw".toUpperCase(), oracleRowEmployees.size(), ROWS);
 
-//                rowsProcessedCounter.increment(oracleRowEmployees.size());
+                rowsProcessedCounter.increment(oracleRowEmployees.size());
 
                 Set<String> oracleHashes = new HashSet<>();
                 for (RowEmploee rowEmploee : oracleRowEmployees) {
@@ -488,7 +454,7 @@ public class App {
 
                 insertRowsToDelEmployees(conn, rowsToDelete);
                 deleteRowsFromMainEmployees(conn, rowsToDelete);
-//                rowsDeletedCounter.increment(rowsToDelete.size());
+                rowsDeletedCounter.increment(rowsToDelete.size());
 
                 Set<String> originalMainHashes = new HashSet<>();
                 for (RowEmploee rowEmploee : mainRowEmploees) {
@@ -496,28 +462,14 @@ public class App {
                 }
 
                 int inserted = insertNewRowsEmployees(conn, oracleRowEmployees, originalMainHashes);
-//                rowsInsertedCounter.increment(inserted);
+                rowsInsertedCounter.increment(inserted);
 
-            } catch (Exception e) {
-//                employeeSyncErrorCounter.increment();
-                logger.error("Error during employee synchronization", e);
             }
-
-            LocalDateTime dStop = LocalDateTime.now();
-            logger.info("Stop : " + dStop);
-            System.out.println("Stop : " + dStop);
-            Duration duration = Duration.between(dStart, dStop);
-            long seconds = duration.getSeconds();
-            logger.info("Duration of unloading time " + seconds + " seconds");
-            System.out.printf("Duration of unloading time %d seconds.\n", seconds);
-            logger.info("===========================================================================================");
-            System.out.println("===========================================================================================");
-
         } catch (Exception e) {
-//            employeeSyncErrorCounter.increment();
+            employeeSyncErrorCounter.increment();
             logger.error("Error in employee synchronization", e);
         } finally {
-//            sample.stop(employeeSyncTimer);
+            sample.stop(employeeSyncTimer);
         }
     }
 
@@ -544,6 +496,7 @@ public class App {
 //    }
 
     // Создать del_dEmployes, если не существует
+    @SuppressWarnings("java:S2077")
     private static void createDelTableIfNotExists(Connection conn, String MAINTABLE, String NEWTABLE) throws SQLException {
         String sql = "IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = '" + NEWTABLE + "' AND xtype='U') BEGIN " +
                 "SELECT TOP 0 * INTO " + NEWTABLE + " FROM " + MAINTABLE + "; " +
@@ -562,40 +515,39 @@ public class App {
     private static List<RowEmploee> loadRowsFromLocalEmployee(Connection conn) throws SQLException {
         List<RowEmploee> rowEmploees = new ArrayList<>();
         String query = "SELECT EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, LOGINNAME, USER_SID, DATE_CREATE FROM " + App.MAIN_TABLE_EMPLOYEES;
-        logger.info("  Running query : " + App.MAIN_TABLE_EMPLOYEES);
-        System.out.println("  Running query : " + App.MAIN_TABLE_EMPLOYEES);
+        logger.info(">>Running query : " + App.MAIN_TABLE_EMPLOYEES);
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
-                String EMPLOYEEID = rs.getString("EMPLOYEEID");
-                String LASTNAMERUS = rs.getString("LASTNAMERUS");
-                String NAMERUS = rs.getString("NAMERUS");
-                String MIDDLENAMERUS = rs.getString("MIDDLENAMERUS");
-                String TABNOM = rs.getString("TABNOM");
-                String JOBTITLERUS = rs.getString("JOBTITLERUS");
-                String LOGINNAME = rs.getString("LOGINNAME");
+                String employeeID = rs.getString("EMPLOYEEID");
+                String lastnameRUS = rs.getString("LASTNAMERUS");
+                String nameRUS = rs.getString("NAMERUS");
+                String middleNameRUS = rs.getString("MIDDLENAMERUS");
+                String tabNom = rs.getString("TABNOM");
+                String jobTitleRUS = rs.getString("JOBTITLERUS");
+                String loginName = rs.getString("LOGINNAME");
                 String email = rs.getString("EMAIL");
-                String IPPHONE = rs.getString("IPPHONE");
-                String WORKPHONE = rs.getString("WORKPHONE");
-                String TYPE_WORK = rs.getString("TYPE_WORK");
-                String DEPARTMENTID = rs.getString("DEPARTMENTID");
-                String MANAGERID = rs.getString("MANAGERID");
-                String USER_SID = rs.getString("USER_SID");
-                String date_create = rs.getString("DATE_CREATE");
-                rowEmploees.add(new RowEmploee(EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, LOGINNAME, email, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, USER_SID, date_create));
+                String ipPhone = rs.getString("IPPHONE");
+                String workPhone = rs.getString("WORKPHONE");
+                String typeWork = rs.getString("TYPE_WORK");
+                String departmentID = rs.getString("DEPARTMENTID");
+                String managerId = rs.getString(MANAGER);
+                String userSID = rs.getString("USER_SID");
+                String dateCreate = rs.getString(DATECREATE);
+                rowEmploees.add(new RowEmploee(employeeID, lastnameRUS, nameRUS, middleNameRUS, tabNom, jobTitleRUS, loginName, email, ipPhone, workPhone, typeWork, departmentID, managerId, userSID, dateCreate));
             }
         }
         return rowEmploees;
     }
+    @SuppressWarnings("java:S2077")
     private static List<RowDepartments> loadRowsFromLocalDepartments(Connection conn) throws SQLException {
         List<RowDepartments> rowDepartments = new ArrayList<>();
         String query = "SELECT DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN, DATE_CREATE  FROM " + App.MAIN_TABLE_DEPARTMENTS;
-        logger.info("  Request running : DB " + App.MAIN_TABLE_DEPARTMENTS);
-        System.out.println("  Request running : DB " + App.MAIN_TABLE_DEPARTMENTS);
+        logger.info(">>Request running : DB {}", App.MAIN_TABLE_DEPARTMENTS);
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
                 String DepartmentID = rs.getString("DepartmentID");
                 String NAME = rs.getString("NAME");
-                String MANAGERID = rs.getString("MANAGERID");
+                String MANAGERID = rs.getString(MANAGER);
                 String MANAGERLOGINNAME = rs.getString("MANAGERLOGINNAME");
                 String PARENTID = rs.getString("PARENTID");
                 String TYPE_NAME = rs.getString("TYPE_NAME");
@@ -605,7 +557,7 @@ public class App {
                 String DATA_INTEG = rs.getString("DATA_INTEG");
                 String E_DOC = rs.getString("E_DOC");
                 String ID_DEPT_OWN = rs.getString("ID_DEPT_OWN");
-                String date_create = rs.getString("DATE_CREATE");
+                String date_create = rs.getString(DATECREATE);
                 rowDepartments.add(new RowDepartments(DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN, date_create));
             }
         }
@@ -615,8 +567,7 @@ public class App {
     private static List<RowEmploee> loadRowsFromOracleEmployee(Connection conn) throws SQLException {
         List<RowEmploee> rowEmploees = new ArrayList<>();
         String query = "SELECT EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, LOGINNAME, USER_SID, GETDATE() AS DATE_CREATE FROM OPENQUERY(oraclecis, 'SELECT EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, LOGINNAME, USER_SID FROM SL.DOC_EMP_VW')";
-        logger.info("  Request running Oracle (Employees) : SL.DOC_EMP_VW");
-        System.out.println("  Request running Oracle (Employees) : SL.DOC_EMP_VW");
+        logger.info(">>Request running Oracle (Employees) : SL.DOC_EMP_VW");
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
                 String EMPLOYEEID = rs.getString("EMPLOYEEID");
@@ -631,9 +582,9 @@ public class App {
                 String WORKPHONE = rs.getString("WORKPHONE");
                 String TYPE_WORK = rs.getString("TYPE_WORK");
                 String DEPARTMENTID = rs.getString("DEPARTMENTID");
-                String MANAGERID = rs.getString("MANAGERID");
+                String MANAGERID = rs.getString(MANAGER);
                 String USER_SID = rs.getString("USER_SID");
-                String date_create = rs.getString("DATE_CREATE");
+                String date_create = rs.getString(DATECREATE);
                 rowEmploees.add(new RowEmploee(EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, LOGINNAME, email, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, USER_SID, date_create));
             }
         }
@@ -642,13 +593,12 @@ public class App {
     private static List<RowDepartments> loadRowsFromOracleDepartments(Connection conn) throws SQLException {
         List<RowDepartments> rowDepartments = new ArrayList<>();
         String query = "SELECT ID as DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN, GETDATE() AS DATE_CREATE FROM OPENQUERY(oraclecis, 'SELECT ID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN FROM sl.doc_dpt_vw')";
-        logger.info("  Request running Oracle (Departments): SL.DOC_DPT_VW");
-        System.out.println("  Request running Oracle (Departments): SL.DOC_DPT_VW");
+        logger.info(">>Request running Oracle (Departments): SL.DOC_DPT_VW");
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
                 String DepartmentID = rs.getString("DepartmentID");
                 String NAME = rs.getString("NAME");
-                String MANAGERID = rs.getString("MANAGERID");
+                String MANAGERID = rs.getString(MANAGER);
                 String MANAGERLOGINNAME = rs.getString("MANAGERLOGINNAME");
                 String PARENTID = rs.getString("PARENTID");
                 String TYPE_NAME = rs.getString("TYPE_NAME");
@@ -658,13 +608,14 @@ public class App {
                 String DATA_INTEG = rs.getString("DATA_INTEG");
                 String E_DOC = rs.getString("E_DOC");
                 String ID_DEPT_OWN = rs.getString("ID_DEPT_OWN");
-                String date_create = rs.getString("DATE_CREATE");
+                String date_create = rs.getString(DATECREATE);
                 rowDepartments.add(new RowDepartments(DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN, date_create));
             }
         }
         return rowDepartments;
     }
     // Вставить новые строки в main_table
+    @SuppressWarnings("java:S1192")
     private static int insertNewRowsEmployees(Connection conn, List<RowEmploee> oracleRowEmploees, Set<String> mainHashes) throws SQLException, NoSuchAlgorithmException {
         String insertSQL = "INSERT INTO " + MAIN_TABLE_EMPLOYEES + " (EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, LOGINNAME, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, USER_SID, DATE_CREATE) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
@@ -694,12 +645,12 @@ public class App {
             }
             if (inserted > 0) {
                 pstmt.executeBatch();
-                logger.info("Inserted a new rows : " + inserted);
-                System.out.println("Inserted a new rows : " + inserted);
+                logger.info("Inserted a new rows : {}", inserted);
             }
             return inserted;
         }
     }
+    @SuppressWarnings("java:S2077")
     private static int insertNewRowsDepartments(Connection conn, List<RowDepartments> oracleDepartments, Set<String> mainHashes) throws SQLException, NoSuchAlgorithmException {
         String insertSQL = "INSERT INTO " + MAIN_TABLE_DEPARTMENTS + " (DepartmentID, NAME, MANAGERID, MANAGERLOGINNAME, PARENTID, TYPE_NAME, CODE, B_DATE, E_DATE, DATA_INTEG, E_DOC, ID_DEPT_OWN, DATE_CREATE) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
@@ -727,8 +678,7 @@ public class App {
             }
             if (inserted > 0) {
                 pstmt.executeBatch();
-                logger.info("Inserted a new rows : " + inserted);
-                System.out.println("Inserted a new rows : " + inserted);
+                logger.info("Inserted a new rows : {}", inserted);
             }
             return inserted;
         }
@@ -758,8 +708,7 @@ public class App {
             }
             if (!rowEmploees.isEmpty()) {
                 pstmt.executeBatch();
-                logger.info("   Unloaded in " + DEL_MAIN_TABLE_EMPLOYEES + ": " + rowEmploees.size() + " rows.");
-                System.out.println("   Unloaded in " + DEL_MAIN_TABLE_EMPLOYEES + ": " + rowEmploees.size() + " rows.");
+                logger.info("   Unloaded in {}: {} {}",DEL_MAIN_TABLE_EMPLOYEES, rowEmploees.size(), ROWS);
             }
         }
     }
@@ -784,8 +733,7 @@ public class App {
             }
             if (!rowDepartments.isEmpty()) {
                 pstmt.executeBatch();
-                logger.info("   Unloaded in " + DEL_MAIN_TABLE_DEPARTMENTS + ": " + rowDepartments.size() + " rows.");
-                System.out.println("   Unloaded in " + DEL_MAIN_TABLE_DEPARTMENTS + ": " + rowDepartments.size() + " rows.");
+                logger.info("   Unloaded in {}: {} {}", DEL_MAIN_TABLE_DEPARTMENTS, rowDepartments.size(), ROWS);
             }
         }
     }
@@ -799,11 +747,11 @@ public class App {
             }
             if (!rowEmployees.isEmpty()) {
                 pstmt.executeBatch();
-                logger.info("   Delete from " + MAIN_TABLE_EMPLOYEES + ": " + rowEmployees.size() + " rows.");
-                System.out.println("   Delete from " + MAIN_TABLE_EMPLOYEES + ": " + rowEmployees.size() + " rows.");
+                logger.info("   Delete from {}: {} {}", MAIN_TABLE_EMPLOYEES, rowEmployees.size(), ROWS);
             }
         }
     }
+    @SuppressWarnings("java:S2077")
     private static void deleteRowsFromMainDepartments(Connection conn, List<RowDepartments> rowDepartments) throws SQLException {
         String deleteSQL = "DELETE FROM " + MAIN_TABLE_DEPARTMENTS + " WHERE DepartmentID = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
@@ -813,9 +761,29 @@ public class App {
             }
             if (!rowDepartments.isEmpty()) {
                 pstmt.executeBatch();
-                logger.info("   Delete from " + MAIN_TABLE_EMPLOYEES + ": " + rowDepartments.size() + " rows.");
-                System.out.println("   Delete from " + MAIN_TABLE_DEPARTMENTS + ": " + rowDepartments.size() + " rows.");
+                logger.info("   Delete from {} : {} rows.",MAIN_TABLE_EMPLOYEES, rowDepartments.size());
             }
         }
+    }
+    private static void safeSleep() {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Восстанавливаем статус прерывания
+        }
+    }
+    private static void logSyncExecution(Runnable syncTask) {
+        LocalDateTime  dStart = LocalDateTime.now();
+        logger.info("Start: {}", dStart);
+
+        syncTask.run();
+
+        LocalDateTime  dStop = LocalDateTime.now();
+        logger.info("Stop {}", LocalDateTime.now());
+
+        Duration duration = Duration.between(dStart, dStop);
+        long seconds = duration.getSeconds();
+        logger.info("Duration of unloading time {} seconds", seconds);
+        logger.info("===========================================================================================");
     }
 }
