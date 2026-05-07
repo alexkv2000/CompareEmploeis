@@ -266,7 +266,9 @@ public class App {
                 List<RowDepartments> mainRowDepartments = loadRowsFromLocalDepartments(conn);
                 logger.info("Loaded from {} : {} {}", MAIN_TABLE_DEPARTMENTS, mainRowDepartments.size(), ROWS);
                 List<RowDepartments> oracleRowDepartments = loadRowsFromOracleDepartments(conn);
-                logger.info("Loaded from Oracle ({}): {} {}", "sl.doc_dpt_vw".toUpperCase(), oracleRowDepartments.size(), ROWS);
+                if (logger.isInfoEnabled()) {
+                    logger.info("Loaded from Oracle ({}): {} {}", "sl.doc_dpt_vw".toUpperCase(), oracleRowDepartments.size(), ROWS);
+                }
                 rowsProcessedCounter.increment(oracleRowDepartments.size());
 
                 Set<String> oracleHashes = new HashSet<>();
@@ -298,13 +300,16 @@ public class App {
         Timer.Sample sample = Timer.start(registry);
         employeeSyncCounter.increment();
         try {
-//            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
             try (Connection conn = DriverManager.getConnection(dbUrl, user, pass)) {
                 createDelTableIfNotExists(conn, MAIN_TABLE_EMPLOYEES, DEL_MAIN_TABLE_EMPLOYEES);
                 List<RowEmployee> mainRowsEmployee = loadRowsFromLocalEmployee(conn);
-                logger.info("Downloaded from {}: {} {}", MAIN_TABLE_EMPLOYEES.toUpperCase(), mainRowsEmployee.size(), ROWS);
+                if (logger.isInfoEnabled()) {
+                    logger.info("Downloaded from {}: {} {}", MAIN_TABLE_EMPLOYEES.toUpperCase(), mainRowsEmployee.size(), ROWS);
+                }
                 List<RowEmployee> oracleRowEmployees = loadRowsFromOracleEmployee(conn);
-                logger.info("Download from Oracle ({}): {} {}", "sl.doc_emp_vw".toUpperCase(), oracleRowEmployees.size(), ROWS);
+                if (logger.isInfoEnabled()) {
+                    logger.info("Download from Oracle ({}): {} {}", "sl.doc_emp_vw".toUpperCase(), oracleRowEmployees.size(), ROWS);
+                }
                 rowsProcessedCounter.increment(oracleRowEmployees.size());
 
                 Set<String> oracleHashes = new HashSet<>();
@@ -333,8 +338,8 @@ public class App {
     }
 
     @SuppressWarnings("java:S2077")
-    private static void createDelTableIfNotExists(Connection conn, String MAINTABLE, String NEWTABLE) throws SQLException {
-        String sql = "IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = '" + NEWTABLE + "' AND xtype='U') BEGIN SELECT TOP 0 * INTO " + NEWTABLE + " FROM " + MAINTABLE + "; ALTER TABLE " + NEWTABLE + " ADD date_delete DATETIME DEFAULT GETDATE(); END";
+    private static void createDelTableIfNotExists(Connection conn, String mainTable, String newTable) throws SQLException {
+        String sql = "IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = '" + newTable + "' AND xtype='U') BEGIN SELECT TOP 0 * INTO " + newTable + " FROM " + mainTable + "; ALTER TABLE " + newTable + " ADD date_delete DATETIME DEFAULT GETDATE(); END";
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(sql);
         } catch (SQLException e) {
