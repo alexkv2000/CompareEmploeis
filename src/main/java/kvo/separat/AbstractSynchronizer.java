@@ -58,7 +58,7 @@ public abstract class AbstractSynchronizer<T extends SyncEntity> {
 
             List<T> rowsToDelete = localRows.stream()
                     .filter(row -> !oracleHashes.contains(getHash(row)))
-                    .collect(Collectors.toList());
+                    .toList();
 
             insertRowsToDelAndDeleteMain(conn, rowsToDelete);
             getRowsDeletedCounter().increment(rowsToDelete.size());
@@ -79,7 +79,7 @@ public abstract class AbstractSynchronizer<T extends SyncEntity> {
         try {
             return HashUtil.getMD5(entity.getDataForHashing());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to generate MD5", e);
+            throw new SyncException("Failed to generate MD5 for entity: " + entity.getId(), e);
         }
     }
 
@@ -94,9 +94,9 @@ public abstract class AbstractSynchronizer<T extends SyncEntity> {
             if (!e.getSQLState().equals("42S01") && !e.getMessage().contains("already exists")) throw e;
         }
     }
-
+    @SuppressWarnings("java:S2077")
     private int insertNewRows(Connection conn, List<T> oracleRows, Set<String> localHashes) throws SQLException {
-        List<T> toInsert = oracleRows.stream().filter(r -> !localHashes.contains(getHash(r))).collect(Collectors.toList());
+        List<T> toInsert = oracleRows.stream().filter(r -> !localHashes.contains(getHash(r))).toList();
         if (toInsert.isEmpty()) return 0;
 
         try (PreparedStatement ps = conn.prepareStatement(getInsertSQL())) {
@@ -109,7 +109,7 @@ public abstract class AbstractSynchronizer<T extends SyncEntity> {
         }
         return toInsert.size();
     }
-
+    @SuppressWarnings("java:S2077")
     private void insertRowsToDelAndDeleteMain(Connection conn, List<T> rowsToDelete) throws SQLException {
         if (rowsToDelete.isEmpty()) return;
 
