@@ -1,24 +1,22 @@
 package kvo.separat;
-
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.sql.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public abstract class AbstractSynchronizer<T extends SyncEntity> {
     private static final Logger logger = LoggerFactory.getLogger(AbstractSynchronizer.class);
     protected final MeterRegistry registry;
-
     protected AbstractSynchronizer(MeterRegistry registry) {
         this.registry = registry;
     }
-
-    // --- Абстрактные методы (реализуются в наследниках) ---
+    // --- Существующие абстрактные методы ---
     protected abstract String getMainTableName();
     protected abstract String getDelTableName();
     protected abstract String getIdColumn();
@@ -27,19 +25,45 @@ public abstract class AbstractSynchronizer<T extends SyncEntity> {
     protected abstract String getLocalQuery();
     protected abstract String getOracleQuery();
 
+    // НОВЫЕ АБСТРАКТНЫЕ МЕТОДЫ (для логирования и маппинга)
+    protected abstract String getOracleViewName(); // Возвращает название вьюхи в Oracle
+    protected abstract T mapRow(ResultSet rs) throws SQLException; // Маппинг строки в объект
+    // --- Метрики ---
     protected abstract Counter getSyncCounter();
     protected abstract Counter getErrorCounter();
     protected abstract Timer getSyncTimer();
-    protected abstract Counter getRowsProcessedCounter();
-    protected abstract Counter getRowsInsertedCounter();
-    protected abstract Counter getRowsDeletedCounter();
 
-    protected abstract List<T> loadLocal(Connection conn) throws SQLException;
-    protected abstract List<T> loadOracle(Connection conn) throws SQLException;
+    // ОБЩИЕ МЕТРИКИ (вынесены из наследников, так как они одинаковые)
+    protected Counter getRowsProcessedCounter() { return App.rowsProcessedCounter; }
+    protected Counter getRowsInsertedCounter() { return App.rowsInsertedCounter; }
+    protected Counter getRowsDeletedCounter() { return App.rowsDeletedCounter; }
+    // --- РЕАЛИЗАЦИЯ ЗАГРУЗКИ ДАННЫХ (Больше не абстрактные, убираем дублирование) ---
+
+    protected List<T> loadLocal(Connection conn) throws SQLException {
+        List<T> list = new ArrayList<>();
+        logger.info(">>Running query : {}", getMainTableName());
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(getLocalQuery())) {
+            while (rs.next()) {
+                list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
+    protected List<T> loadOracle(Connection conn) throws SQLException {
+        List<T> list = new ArrayList<>();
+        logger.info(">>Request running Oracle ({}) : {}", getMainTableName(), getOracleViewName());
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(getOracleQuery())) {
+            while (rs.next()) {
+                list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
+
     protected abstract void setInsertParams(PreparedStatement ps, T entity) throws SQLException;
     protected abstract void setDelInsertParams(PreparedStatement ps, T entity) throws SQLException;
 
-    // --- Общий алгоритм синхронизации (Template Method) ---
+   // --- Общий алгоритм синхронизации (Template Method) ---
     public void sync(Connection conn) {
         Timer.Sample sample = Timer.start(registry);
         getSyncCounter().increment();

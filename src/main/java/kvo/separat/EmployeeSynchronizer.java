@@ -3,24 +3,21 @@ package kvo.separat;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public class EmployeeSynchronizer extends AbstractSynchronizer<RowEmployee> {
-    private static final Logger logger = LoggerFactory.getLogger(EmployeeSynchronizer.class);
 
     public EmployeeSynchronizer(MeterRegistry registry) {
         super(registry);
     }
 
-    // --- Реализация абстрактных методов (метаданные таблиц) ---
     @Override protected String getMainTableName() { return "dEmployes"; }
     @Override protected String getDelTableName() { return "del_Employes"; }
     @Override protected String getIdColumn() { return "EMPLOYEEID"; }
+
+    // НОВЫЙ МЕТОД
+    @Override protected String getOracleViewName() { return "SL.DOC_EMP_VW"; }
 
     // --- SQL Запросы ---
     @Override
@@ -43,37 +40,15 @@ public class EmployeeSynchronizer extends AbstractSynchronizer<RowEmployee> {
         return "SELECT EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, LOGINNAME, USER_SID, GETDATE() AS DATE_CREATE FROM OPENQUERY(oraclecis, 'SELECT EMPLOYEEID, LASTNAMERUS, NAMERUS, MIDDLENAMERUS, TABNOM, JOBTITLERUS, EMAIL, IPPHONE, WORKPHONE, TYPE_WORK, DEPARTMENTID, MANAGERID, LOGINNAME, USER_SID FROM SL.DOC_EMP_VW')";
     }
 
-    // --- Метрики (берем их из статических полей класса App) ---
+    // --- Метрики ---
     @Override protected Counter getSyncCounter() { return App.employeeSyncCounter; }
     @Override protected Counter getErrorCounter() { return App.employeeSyncErrorCounter; }
     @Override protected Timer getSyncTimer() { return App.employeeSyncTimer; }
-    @Override protected Counter getRowsProcessedCounter() { return App.rowsProcessedCounter; }
-    @Override protected Counter getRowsInsertedCounter() { return App.rowsInsertedCounter; }
-    @Override protected Counter getRowsDeletedCounter() { return App.rowsDeletedCounter; }
+    // (getRowsProcessedCounter, getRowsInsertedCounter, getRowsDeletedCounter удалены отсюда)
 
-    // --- Загрузка данных из БД ---
+    // --- НОВЫЙ МЕТОД: Маппинг ResultSet -> Объект ---
     @Override
-    protected List<RowEmployee> loadLocal(Connection conn) throws SQLException {
-        List<RowEmployee> list = new ArrayList<>();
-        logger.info(">>Running query : {}", getMainTableName());
-        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(getLocalQuery())) {
-            while (rs.next()) list.add(mapRow(rs));
-        }
-        return list;
-    }
-
-    @Override
-    protected List<RowEmployee> loadOracle(Connection conn) throws SQLException {
-        List<RowEmployee> list = new ArrayList<>();
-        logger.info(">>Request running Oracle (Employees) : SL.DOC_EMP_VW");
-        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(getOracleQuery())) {
-            while (rs.next()) list.add(mapRow(rs));
-        }
-        return list;
-    }
-
-    // Вспомогательный метод маппинга ResultSet -> Объект
-    private RowEmployee mapRow(ResultSet rs) throws SQLException {
+    protected RowEmployee mapRow(ResultSet rs) throws SQLException {
         return new RowEmployee(
                 rs.getString("EMPLOYEEID"), rs.getString("LASTNAMERUS"), rs.getString("NAMERUS"),
                 rs.getString("MIDDLENAMERUS"), rs.getString("TABNOM"), rs.getString("JOBTITLERUS"),
@@ -105,7 +80,6 @@ public class EmployeeSynchronizer extends AbstractSynchronizer<RowEmployee> {
 
     @Override
     protected void setDelInsertParams(PreparedStatement ps, RowEmployee r) throws SQLException {
-        // Параметры идентичны вставке в основную таблицу
         setInsertParams(ps, r);
     }
 }
